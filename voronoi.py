@@ -9,79 +9,45 @@ Author: Evan K. Friis
 '''
 
 import argparse
-from collections import namedtuple, Counter
+from collections import namedtuple
 import gzip
 import itertools
 import logging
 import operator
 
 import numpy as np
-from scipy.spatial import Voronoi, voronoi_plot_2d
+from scipy.spatial import Voronoi
 
 from descartes import PolygonPatch
 from shapely.geometry import MultiPolygon
 from shapely.geometry.polygon import LinearRing
 from shapely.ops import cascaded_union, polygonize
-from shapely.wkt import dumps as dump_shape
 import matplotlib.pyplot as plt
+
+import topotools
 
 log = logging.getLogger(__name__)
 
 NodeInfo = namedtuple('NodeInfo', ['id', 'lat', 'lon', 'clust'])
 
 
-def read_clusters(gzipped_file):
+def read_clusters(gzipped_file, bbox):
     """Yield node and cluster info from a gzip file"""
+    def in_bbox(node):
+        if not bbox:
+            return True
+        else:
+            if bbox[0] < node.lon < bbox[2]:
+                if bbox[1] < node.lat < bbox[2]:
+                    return True
+        return False
+
     with gzip.open(gzipped_file, 'rb') as fd:
         for line in fd:
             fields = [int(x) for x in line.strip().split()]
-            yield NodeInfo(*fields)
-
-
-def voronoi_prune_region(nodes, draw=None):
-    """ Takes as input a list of points
-
-    Remove all those points completely contained.
-    In other words, only return those which are on
-    the boundary.
-    """
-
-    nodes_list = list(nodes)
-
-    log.info("Pruning %i nodes", len(nodes_list))
-
-    voronoi = Voronoi(np.array(
-        [(x.lon, x.lat) for x in nodes_list]))
-
-    # Keep track of how many points are in region defined by a vertex
-    vertex_membership = collections.Counter()
-
-    edge_regions = set([])
-
-    for region_idx, region in enumerate(voronoi.regions):
-        # indicates an exterior region
-        if -1 in region:
-            edge_regions.add(region_idx)
-
-    output = []
-
-    point_region_map = voronoi.point_region
-    for node_idx, node in enumerate(nodes_list):
-        if point_region_map[node_idx] in edge_regions:
-            output.append(node)
-    log.info("There are %i nodes after pruning", len(output))
-
-    if draw is not None:
-        fig = plt.figure(figsize=(20, 20))
-        voronoi_plot_2d(voronoi)
-        plt.plot(
-            [x.lon for x in output],
-            [x.lat for x in output],
-            'x', color='red', hold=1)
-        plt.savefig(draw)
-        del fig
-
-    return output
+            node = NodeInfo(*fields)
+            if in_bbox(node):
+                yield node
 
 
 if __name__ == "__main__":
@@ -100,13 +66,18 @@ if __name__ == "__main__":
     parser.add_argument(
         '--draw', help='Draw voronoi diagram')
 
+    parser.add_argument('--bbox', nargs=4, type=float,
+                        metavar='x',
+                        help='Only consider nodes within bbox')
+
     args = parser.parse_args()
 
     logging.basicConfig()
     log.setLevel(logging.INFO)
+    topotools.log.setLevel(logging.INFO)
 
     clustered_nodes = itertools.groupby(
-        read_clusters(args.input),
+        read_clusters(args.input, args.bbox),
         operator.attrgetter('clust')
     )
 
@@ -117,7 +88,7 @@ if __name__ == "__main__":
         draw = None
         if args.drawprune and clustidx in args.drawprune:
             draw = 'prune_%i.png' % clustidx
-        pruned = voronoi_prune_region(nodes, draw=draw)
+        pruned = topotools.voronoi_prune_region(nodes, 25, draw=draw)
         pruned_nodes.extend(pruned)
 
     pruned_nodes.sort(key=operator.attrgetter('clust'))

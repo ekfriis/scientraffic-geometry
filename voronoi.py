@@ -9,20 +9,21 @@ Author: Evan K. Friis
 '''
 
 import argparse
-from collections import namedtuple
+from collections import namedtuple, Counter
 import gzip
 import itertools
 import logging
-import math
 import operator
 
+import numpy as np
+from scipy.spatial import Voronoi, voronoi_plot_2d
+
 from descartes import PolygonPatch
-from shapely.geometry import MultiLineString, MultiPolygon
+from shapely.geometry import MultiPolygon
+from shapely.geometry.polygon import LinearRing
 from shapely.ops import cascaded_union, polygonize
 from shapely.wkt import dumps as dump_shape
 import matplotlib.pyplot as plt
-import numpy as np
-from scipy.spatial import Delaunay
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +38,52 @@ def read_clusters(gzipped_file):
             yield NodeInfo(*fields)
 
 
+def voronoi_prune_region(nodes, draw=None):
+    """ Takes as input a list of points
+
+    Remove all those points completely contained.
+    In other words, only return those which are on
+    the boundary.
+    """
+
+    nodes_list = list(nodes)
+
+    log.info("Pruning %i nodes", len(nodes_list))
+
+    voronoi = Voronoi(np.array(
+        [(x.lon, x.lat) for x in nodes_list]))
+
+    # Keep track of how many points are in region defined by a vertex
+    vertex_membership = collections.Counter()
+
+    edge_regions = set([])
+
+    for region_idx, region in enumerate(voronoi.regions):
+        # indicates an exterior region
+        if -1 in region:
+            edge_regions.add(region_idx)
+
+    output = []
+
+    point_region_map = voronoi.point_region
+    for node_idx, node in enumerate(nodes_list):
+        if point_region_map[node_idx] in edge_regions:
+            output.append(node)
+    log.info("There are %i nodes after pruning", len(output))
+
+    if draw is not None:
+        fig = plt.figure(figsize=(20, 20))
+        voronoi_plot_2d(voronoi)
+        plt.plot(
+            [x.lon for x in output],
+            [x.lat for x in output],
+            'x', color='red', hold=1)
+        plt.savefig(draw)
+        del fig
+
+    return output
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -45,9 +92,10 @@ if __name__ == "__main__":
     parser.add_argument(
         'output', metavar='community_shapes.gz',
         help='Gzipped WKT output polygons')
+
     parser.add_argument(
-        '--cut', default=10, type=float,
-        help='alpha parameter cut')
+        '--draw-prune', dest='drawprune', type=int, nargs='+',
+        help='Draw voronoi pruning debug diagram')
 
     parser.add_argument(
         '--draw', help='Draw voronoi diagram')
@@ -62,67 +110,84 @@ if __name__ == "__main__":
         operator.attrgetter('clust')
     )
 
-    all_points = []
-    clust_indices = []
+    pruned_nodes = []
 
     for clustidx, nodes in clustered_nodes:
-        log.info("Processing cluster %i", clustidx)
-        node_list = list(nodes)
+        log.info("Pruning interior of cluster %i", clustidx)
+        draw = None
+        if args.drawprune and clustidx in args.drawprune:
+            draw = 'prune_%i.png' % clustidx
+        pruned = voronoi_prune_region(nodes, draw=draw)
+        pruned_nodes.extend(pruned)
 
-        # from http://sgillies.net/blog/1155/the-fading-shape-of-alpha/
-        all_points.extend([(x.lat, x.lon) for x in node_list])
-        clust_indices.extend([clustidx] * len(node_list))
+    pruned_nodes.sort(key=operator.attrgetter('clust'))
 
-    all_points = np.array(all_points)
+    log.info("Generating full Voronoi from %i pruned nodes",
+             len(pruned_nodes))
 
-    log.info("Found %i points", len(all_points))
+    max_lat = max([x.lat for x in pruned_nodes])
+    min_lat = min([x.lat for x in pruned_nodes])
+    max_lon = max([x.lon for x in pruned_nodes])
+    min_lon = min([x.lon for x in pruned_nodes])
 
-    # http://stackoverflow.com/questions/10650645/
-    # python-calculate-voronoi-tesselation-from-scipys-delaunay-triangulation-in-3d
-    tri = Delaunay(all_points)
+    voronoi = Voronoi(np.array(
+        [(x.lon, x.lat) for x in pruned_nodes]))
 
-    log.info("Done triangulating")
-    p = tri.points[tri.vertices]
+    log.info("Joining polygons")
 
-    def compute_circumcenters(points):
-        # Triangle vertices
-        A = points[:, 0, :].T
-        B = points[:, 1, :].T
-        C = points[:, 2, :].T
+    output_polygons = []
 
-        # See http://en.wikipedia.org/wiki/
-        # Circumscribed_circle#Circumscribed_circles_of_triangles
-        # The following is just a direct transcription of the formula there
-        a = A - C
-        b = B - C
+    # Loop over collections of node indices
+    for clusteridx, node_iter in itertools.groupby(
+            enumerate(pruned_nodes), lambda x: x[1].clust):
 
-        import pdb
-        pdb.set_trace()
+        # keep track of all paths in this cluster's
+        # voronoi regions.
+        cluster_lines = []
 
-        # free memory
-        del A
-        del B
+        for node_idx, node in node_iter:
+            #print clusteridx, node_idx, node.clust
+            # Get the voronoi region of this point
+            voronoi_region = voronoi.point_region[node_idx]
+            vertices_idxs = voronoi.regions[voronoi_region]
+            # ignore infinite cells
+            if -1 in vertices_idxs:
+                continue
+            # add the boundary corresponding to this region
+            cluster_lines.append(LinearRing(
+                [voronoi.vertices[idx] for idx in vertices_idxs]))
 
-        # top left bit
-        mag_a = np.linalg.norm(a)
-        mag_b = np.linalg.norm(a)
-        a_cross_b = a.cross(b)
-        mag_a_cross_b = np.linalg.norm(a_cross_b)
-        d = mag_a**2 * b - mag_b**2 * a
-        # circumcenters
-        cc = d.cross(a_cross_b) / (2 * mag_a_cross_b**2) + C
-        return cc
-    cc = compute_circumcenters(p)
+        polygons = list(polygonize(cluster_lines))
+        polygon = cascaded_union(polygons)
+        #import pdb
+        #pdb.set_trace()
+        log.info("Created polygon for cluster %i with area %0.2f",
+                 clusteridx, polygon.area)
 
-    # Grab the Voronoi edges
-    vc = cc[:, tri.neighbors]
-    # edges at infinity, plotting those would need more work...
-    vc[:, tri.neighbors == -1] = np.nan
+        best_polygon = polygon
+        original_area = polygon.area
+        best_area = polygon.area
 
-    lines = []
-    lines.extend(zip(cc.T, vc[:,:,0].T))
-    lines.extend(zip(cc.T, vc[:,:,1].T))
-    lines.extend(zip(cc.T, vc[:,:,2].T))
+        if isinstance(polygon, MultiPolygon):
+            best_area = 0
+            log.info("Multi polygons detected")
+            for ip, subpoly in enumerate(polygon):
+                subpoly.cluster = clusteridx
+                output_polygons.append(subpoly)
+                #log.info("Poly %i - area: %f", ip, subpoly.area)
+                if subpoly.area > best_area:
+                    best_polygon = subpoly
+                    best_area = subpoly.area
+        else:
+            output_polygons.append(best_polygon)
 
-    m = MultiLineString(lines)
+    if args.draw:
+        figure = plt.figure()
+        plt.gca().set_ylim((min_lat, max_lat))
+        plt.gca().set_xlim((min_lon, max_lon))
+        for polygon in output_polygons:
+            plt.gca().add_patch(
+                PolygonPatch(polygon, alpha=0.5, ec='red'))
+        figure.savefig(args.draw)
+
 

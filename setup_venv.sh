@@ -11,3 +11,7 @@ pip install shapely
 pip install descartes
 pip install matplotlib
 pip install ipython
+
+# You have to do some trickery for this one.
+# http://gis.stackexchange.com/questions/28966/python-gdal-package-missing-header-file-when-installing-via-pip
+pip install GDAL

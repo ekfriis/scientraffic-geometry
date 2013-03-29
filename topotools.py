@@ -7,6 +7,7 @@ Helper functions for filtering point collections.
 import itertools
 import logging
 import math
+import random
 
 from descartes import PolygonPatch
 import numpy as np
@@ -100,7 +101,7 @@ def get_concave_hull(points, cut):
     return best_polygon
 
 
-def voronoi_prune_region(nodes, alpha_cut, draw=None):
+def voronoi_prune_region(nodes, alpha_cut, keep=0.05, draw=None):
     """ Takes as input a list of points
 
     First computes the concave hull and removes
@@ -115,12 +116,14 @@ def voronoi_prune_region(nodes, alpha_cut, draw=None):
 
     log.info("Pruning %i nodes", len(nodes_list))
 
-    points = np.array([(x.lon, x.lat) for x in nodes_list])
+    points = np.array([(x.lon, x.lat) for x in nodes_list], dtype=int)
 
     # get the concave hull around these points
     hull = get_concave_hull(points, alpha_cut)
     # buffer hull by about 5% for determining membership
-    buffered_hull = hull.buffer(math.sqrt(hull.area)*0.05)
+    hull_distance_scale = math.sqrt(hull.area)
+    buffered_hull = hull.buffer(hull_distance_scale * 0.05)
+    hull_boundary = hull.boundary
 
     # Remove any outlier points around these nodes.
     # Mark the good nodes.
@@ -134,7 +137,7 @@ def voronoi_prune_region(nodes, alpha_cut, draw=None):
 
     # We only care about interior points now.
     del nodes_list
-    points = np.array([(x.lon, x.lat) for x in nodes_in_hull])
+    points = np.array([(x.lon, x.lat) for x in nodes_in_hull], dtype=int)
 
     log.info("After hull cleaning, %i nodes remain",
              len(points))
@@ -145,18 +148,24 @@ def voronoi_prune_region(nodes, alpha_cut, draw=None):
 
     # find all regions which have a vertex outside the hull
     for region_idx, region in enumerate(voronoi.regions):
+        exterior_region = False
+        # keep a random collection of interior points
+        if random.random() < keep:
+            exterior_region = True
         for vtx_idx in region:
             # indicates an exterior region, we always keep these
-            exterior_region = False
             if vtx_idx == -1:
                 exterior_region = True
-            else:
-                point = voronoi.vertices[vtx_idx]
-                if not Point(point).within(hull):
-                    exterior_region = True
-            if exterior_region:
-                edge_regions.add(region_idx)
                 break
+            else:
+                point = Point(voronoi.vertices[vtx_idx])
+                if not point.within(hull) or (
+                        point.distance(hull_boundary)
+                        < hull_distance_scale * 0.05):
+                    exterior_region = True
+                    break
+        if exterior_region:
+            edge_regions.add(region_idx)
 
     output = []
 

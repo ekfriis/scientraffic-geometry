@@ -152,18 +152,23 @@ def voronoi_prune_region(nodes, alpha_cut, keep=0.05, draw=None):
         # keep a random collection of interior points
         if random.random() < keep:
             exterior_region = True
-        for vtx_idx in region:
-            # indicates an exterior region, we always keep these
-            if vtx_idx == -1:
-                exterior_region = True
-                break
-            else:
-                point = Point(voronoi.vertices[vtx_idx])
-                if not point.within(hull) or (
-                        point.distance(hull_boundary)
-                        < hull_distance_scale * 0.05):
+        else:
+            for vtx_idx in region:
+                # indicates an exterior region, we always keep these
+                if vtx_idx == -1:
                     exterior_region = True
                     break
+                else:
+                    point = Point(voronoi.vertices[vtx_idx])
+                    if not point.within(hull):
+                        exterior_region = True
+                        break
+                    # Keep 20% of points very close to the border
+                    if random.random() < 0.2 and (
+                            point.distance(hull_boundary)
+                            < hull_distance_scale * 0.03):
+                        exterior_region = True
+                        break
         if exterior_region:
             edge_regions.add(region_idx)
 

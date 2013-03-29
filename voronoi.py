@@ -138,8 +138,8 @@ if __name__ == "__main__":
             ring = MultiLineString(points)
             polygons = list(polygonize([ring]))
             if not polygons:
-                log.warning("No polygons detected in line with coords: %s",
-                            repr(list(ring.coords)))
+                log.warning("No polygons detected in line, skipping")
+                continue
             else:
                 if not polygons[0].is_valid:
                     log.warning("Invalid polygon! %s",

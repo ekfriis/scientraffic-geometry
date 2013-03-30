@@ -5,15 +5,15 @@
 
 # Put OSRM graph data into igraph format
 %.igraph.pkl.gz: %.osrm
-	./osrm2igraph.py $@ $<
+	./osrm2igraph.py $< $@
 
 # Cluster nodes in graph using fast-greedy
 %.communities.gz: %.igraph.pkl.gz
-	./communities.py --clusters 500 $< $@
+	./find-communities.py --clusters 500 $< $@
 
 # Make geo-json 
-%.tesselation.json: 
-	./voronoi.py 
+%.tesselation.json: %.communities.gz gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
+	./tesselate-communities.py $< $@ --draw $?.pdf --bbox -118.20000 33.84000 -118.40000 33.92000 --AND gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
 
 ######################################
 # Downloading data 
@@ -26,6 +26,7 @@ gis_data/ne_10m_land.zip:
 
 gis_data/ne_10m_land.shp: gis_data/ne_10m_land.zip
 	cd gis_data && unzip `basename $<`
+	touch $@
 
 # Urban areas
 gis_data/ne_10m_urban_areas.zip:
@@ -34,3 +35,4 @@ gis_data/ne_10m_urban_areas.zip:
 
 gis_data/ne_10m_urban_areas.shp: gis_data/ne_10m_urban_areas.zip
 	cd gis_data && unzip `basename $<`
+	touch $@

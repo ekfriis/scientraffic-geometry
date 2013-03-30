@@ -6,21 +6,17 @@ Find communities in an graph
 
 Uses the fast-greedy algorithm.
 
-The output format is a picke of a list of
-tuples, with the form:
+The output format is a gzipped string packed data.
 
-[
-    (osrm_nodeid, lat, lon, clusterId),
-    (osrm_nodeid, lat, lon, clusterId),
-    ...
-]
+Each line has the format:
+
+    osrm_id lat lon cluster
 
 Author: Evan K. Friis
 
 '''
 
 import argparse
-import cPickle as pickle
 import gzip
 import logging
 
@@ -35,7 +31,7 @@ if __name__ == "__main__":
     parser.add_argument('output', metavar='communities.gz',
                         help='Output communities')
     parser.add_argument('--clusters', default=1000,
-                        help='Number of clusters to form')
+                        type=int, help='Number of clusters to form')
 
     args = parser.parse_args()
 

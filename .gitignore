@@ -1,3 +1,5 @@
 *.png
 *.pyc
 *.gz
+venv
+gis_data

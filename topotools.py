@@ -134,7 +134,7 @@ def voronoi_prune_region(nodes, alpha_cut, keep=0.05, draw=None):
 
     log.info("Pruning %i nodes", len(nodes_list))
 
-    points = np.array([(x.lon, x.lat) for x in nodes_list], dtype=int)
+    points = np.array([(x.lon, x.lat) for x in nodes_list], dtype=float)
 
     # get the concave hull around these points
     hull = get_concave_hull(points, alpha_cut)
@@ -155,7 +155,7 @@ def voronoi_prune_region(nodes, alpha_cut, keep=0.05, draw=None):
 
     # We only care about interior points now.
     del nodes_list
-    points = np.array([(x.lon, x.lat) for x in nodes_in_hull], dtype=int)
+    points = np.array([(x.lon, x.lat) for x in nodes_in_hull], dtype=float)
 
     log.info("After hull cleaning, %i nodes remain",
              len(points))

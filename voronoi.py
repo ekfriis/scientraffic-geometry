@@ -50,6 +50,9 @@ def read_clusters(gzipped_file, bbox):
     with gzip.open(gzipped_file, 'rb') as fd:
         for line in fd:
             fields = [int(x) for x in line.strip().split()]
+            # Scale lat/lon to normal degrees
+            fields[1] /= 100000.
+            fields[2] /= 100000.
             node = NodeInfo(*fields)
             if in_bbox(node):
                 yield node
@@ -132,7 +135,7 @@ if __name__ == "__main__":
         bounding_shapes) if bounding_shapes else None
 
     voronoi = Voronoi(np.array(
-        [(x.lon, x.lat) for x in pruned_nodes], dtype=int))
+        [(x.lon, x.lat) for x in pruned_nodes], dtype=float))
 
     log.info("Joining polygons")
 
@@ -209,7 +212,7 @@ if __name__ == "__main__":
         #for clusteridx, node_iter in itertools.groupby(
                 #pruned_nodes, operator.attrgetter('clust')):
             #color_for_clust = colors[clusteridx % len(colors)]
-            #xy = np.array([(x.lon, x.lat) for x in node_iter], dtype=int)
+            #xy = np.array([(x.lon, x.lat) for x in node_iter], dtype=float)
             #plt.plot(xy[:, 0], xy[:, 1], 'x', color=color_for_clust, hold=1)
         for polygon in output_polygons:
             color_for_clust = colors[polygon.cluster % len(colors)]

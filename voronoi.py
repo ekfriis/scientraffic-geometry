@@ -12,6 +12,7 @@ import argparse
 from collections import namedtuple
 import gzip
 import itertools
+import geojson
 import logging
 import operator
 import random
@@ -21,6 +22,7 @@ from scipy.spatial import Voronoi
 
 from descartes import PolygonPatch
 from shapely.geometry import MultiPolygon, MultiLineString, Polygon
+#from shapely.geometry import mapping
 from shapely.ops import cascaded_union, polygonize
 from shapely.validation import explain_validity
 import matplotlib.pyplot as plt
@@ -128,8 +130,11 @@ if __name__ == "__main__":
         log.info("Loading features from %s", shp_file)
         for feature in topotools.shp_to_multipolygon(
                 shp_file, overlapping=bounding_box):
-            if bounding_box.intersects(feature):
-                bounding_shapes.append(feature)
+            if not isinstance(feature, MultiPolygon):
+                feature = [feature]
+            for poly in feature:
+                if bounding_box.intersects(poly):
+                    bounding_shapes.append(poly.intersection(bounding_box))
     log.info("Found %i overlapping features", len(bounding_shapes))
     bounding_polygon = MultiPolygon(
         bounding_shapes) if bounding_shapes else None
@@ -209,11 +214,14 @@ if __name__ == "__main__":
         figure = plt.figure()
         plt.gca().set_ylim((min_lat, max_lat))
         plt.gca().set_xlim((min_lon, max_lon))
-        #for clusteridx, node_iter in itertools.groupby(
-                #pruned_nodes, operator.attrgetter('clust')):
-            #color_for_clust = colors[clusteridx % len(colors)]
-            #xy = np.array([(x.lon, x.lat) for x in node_iter], dtype=float)
-            #plt.plot(xy[:, 0], xy[:, 1], 'x', color=color_for_clust, hold=1)
+        draw_points = False
+        if draw_points:
+            for clusteridx, node_iter in itertools.groupby(
+                    pruned_nodes, operator.attrgetter('clust')):
+                color_for_clust = colors[clusteridx % len(colors)]
+                xy = np.array([(x.lon, x.lat) for x in node_iter], dtype=float)
+                plt.plot(xy[:, 0], xy[:, 1], 'x',
+                         color=color_for_clust, hold=1)
         for polygon in output_polygons:
             if not polygon:
                 continue
@@ -222,3 +230,20 @@ if __name__ == "__main__":
                 PolygonPatch(polygon, alpha=0.2, ec='black',
                              fc=color_for_clust))
         figure.savefig(args.draw)
+
+    log.info("Writing to: %s", args.output)
+
+    features = []
+    for i, poly in enumerate(output_polygons):
+        feature = geojson.Feature(
+            id=i,
+            geometry=poly,
+            properties={
+                'clust': poly.cluster
+            }
+        )
+        features.append(feature)
+    feature_collection = geojson.FeatureCollection(features)
+
+    with open(args.output, 'w') as outputfd:
+        geojson.dump(feature_collection, outputfd, indent=2)

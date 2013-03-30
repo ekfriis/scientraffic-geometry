@@ -11,13 +11,31 @@ import random
 
 from descartes import PolygonPatch
 import numpy as np
+from osgeo import ogr
 from scipy.spatial import Delaunay, Voronoi, voronoi_plot_2d
 from shapely.geometry import MultiPolygon, Point
 from shapely.geometry import MultiLineString
 from shapely.ops import cascaded_union, polygonize
+from shapely.wkb import loads
 import matplotlib.pyplot as plt
 
 log = logging.getLogger(__name__)
+
+
+def shp_to_multipolygon(shp_file, overlapping=None):
+    """Yields features from a .shp in Shapely format
+
+    If overlapping is not None, only polygons which overlap it
+    are yielded.
+    """
+    log.info("Converting %s to shapely format", shp_file)
+    source = ogr.Open(shp_file)
+    layer = source.GetLayer()
+    for fidx in range(layer.GetFeatureCount()):
+        feature = layer.GetFeature(fidx)
+        polygon = loads(feature.GetGeometryRef().ExportToWkb())
+        if not overlapping or polygon.intersects(overlapping):
+            yield polygon
 
 
 def get_concave_hull(points, cut):

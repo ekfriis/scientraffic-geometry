@@ -215,6 +215,8 @@ if __name__ == "__main__":
             #xy = np.array([(x.lon, x.lat) for x in node_iter], dtype=float)
             #plt.plot(xy[:, 0], xy[:, 1], 'x', color=color_for_clust, hold=1)
         for polygon in output_polygons:
+            if not polygon:
+                continue
             color_for_clust = colors[polygon.cluster % len(colors)]
             plt.gca().add_patch(
                 PolygonPatch(polygon, alpha=0.2, ec='black',

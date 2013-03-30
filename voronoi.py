@@ -20,7 +20,7 @@ import numpy as np
 from scipy.spatial import Voronoi
 
 from descartes import PolygonPatch
-from shapely.geometry import MultiPolygon, MultiLineString
+from shapely.geometry import MultiPolygon, MultiLineString, Polygon
 from shapely.ops import cascaded_union, polygonize
 from shapely.validation import explain_validity
 import matplotlib.pyplot as plt
@@ -74,6 +74,11 @@ if __name__ == "__main__":
     parser.add_argument('--bbox', nargs=4, type=float, metavar='x',
                         help='Only consider nodes within bbox')
 
+    parser.add_argument('--AND', dest="and_shapes", nargs='+', type=str,
+                        default=[], metavar='file.shp',
+                        help='List of .shp files to '
+                        'AND the output shapes with')
+
     parser.add_argument('--seed', default=1, type=int, help='random seed')
 
     args = parser.parse_args()
@@ -108,6 +113,23 @@ if __name__ == "__main__":
     min_lat = min([x.lat for x in pruned_nodes])
     max_lon = max([x.lon for x in pruned_nodes])
     min_lon = min([x.lon for x in pruned_nodes])
+
+    bounding_box = Polygon(
+        [(min_lon, min_lat), (max_lon, min_lat),
+         (max_lon, max_lat), (min_lon, max_lat),
+         (min_lon, min_lat)])
+
+    # Find any relevant shapes in our AND shapefile
+    bounding_shapes = []
+    for shp_file in args.and_shapes:
+        log.info("Loading features from %s", shp_file)
+        for feature in topotools.shp_to_multipolygon(
+                shp_file, overlapping=bounding_box):
+            if bounding_box.intersects(feature):
+                bounding_shapes.append(feature)
+    log.info("Found %i overlapping features", len(bounding_shapes))
+    bounding_polygon = MultiPolygon(
+        bounding_shapes) if bounding_shapes else None
 
     voronoi = Voronoi(np.array(
         [(x.lon, x.lat) for x in pruned_nodes], dtype=int))
@@ -155,6 +177,10 @@ if __name__ == "__main__":
         #pdb.set_trace()
         log.info("Created polygon for cluster %i with area %0.2f",
                  clusteridx, polygon.area)
+
+        if bounding_polygon is not None:
+            polygon = polygon.intersection(bounding_polygon)
+        log.info("After AND-ing, the area is: %0.2f", polygon.area)
 
         best_polygon = polygon
         original_area = polygon.area

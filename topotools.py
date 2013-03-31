@@ -14,8 +14,8 @@ import random
 from descartes import PolygonPatch
 import numpy as np
 from osgeo import ogr
-from scipy.spatial import Delaunay, Voronoi, voronoi_plot_2d
-from shapely.geometry import MultiPolygon, Point
+from scipy.spatial import Delaunay, Voronoi, voronoi_plot_2d, ConvexHull
+from shapely.geometry import MultiPolygon, Point, Polygon
 from shapely.geometry import MultiLineString
 from shapely.ops import cascaded_union, polygonize
 from shapely.wkb import loads
@@ -151,6 +151,18 @@ def get_concave_hull(points, cut):
                 best_area = subpoly.area
     log.info("Found main polygon with area: %f", best_area)
     return best_polygon
+
+
+def get_convex_hull(points):
+    """ Find the convex hull of points, return as Shapely polygon """
+    log.info("Finding convex hull of %i points", len(points))
+    hull = ConvexHull(points)
+    log.info("Found convex hull with %i facets", len(hull.simplices))
+    points = []
+    for simplex in hull.simplices:
+        points.append((points[simplex, 0], points[simplex, 1]))
+    polygon = Polygon(points)
+    return polygon
 
 
 def voronoi_prune_region(nodes, alpha_cut, keep=0.05, draw=None):

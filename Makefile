@@ -8,12 +8,14 @@
 	./osrm2igraph.py $< $@
 
 # Cluster nodes in graph using fast-greedy
-%.communities.gz: %.igraph.pkl.gz
+%.communities.gz: %.igraph.pkl.gz find-communities.py 
 	./find-communities.py --clusters 500 $< $@
 
 # Make geo-json 
-%.tesselation.json: %.communities.gz gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
-	./tesselate-communities.py $< $@ --draw $?.pdf --bbox -118.20000 33.84000 -118.40000 33.92000 --AND gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
+%.tesselation.json: %.communities.gz tesselate-communities.py gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
+	./tesselate-communities.py $< $@ --draw $*.pdf --bbox -118.20000 33.84000 -118.40000 33.92000 --AND gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
+
+all: los-angeles.igraph.pkl.gz los-angeles.communities.gz los-angeles.tesselation.json
 
 ######################################
 # Downloading data 

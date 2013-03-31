@@ -45,6 +45,9 @@ if __name__ == "__main__":
     log.info("Finding communities via fastgreedy")
     communities = graph.community_fastgreedy(weights='weight')
 
+    log.info("Found an optimal count of %i communities",
+             communities.optimal_count)
+
     log.info("Partitioning dendrogram into %i clusters", args.clusters)
     clusters = communities.as_clustering(args.clusters)
 

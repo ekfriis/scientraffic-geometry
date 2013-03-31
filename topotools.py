@@ -15,7 +15,7 @@ from descartes import PolygonPatch
 import numpy as np
 from osgeo import ogr
 from scipy.spatial import Delaunay, Voronoi, voronoi_plot_2d, ConvexHull
-from shapely.geometry import MultiPolygon, Point, Polygon
+from shapely.geometry import MultiPolygon, Point
 from shapely.geometry import MultiLineString
 from shapely.ops import cascaded_union, polygonize
 from shapely.wkb import loads
@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 NodeInfo = namedtuple('NodeInfo', ['id', 'lat', 'lon', 'clust'])
 
 
-def read_clusters(gzipped_file, bbox):
+def read_clusters(gzipped_file, bbox, scale=True):
     """Yield node and cluster info from a gzip file
 
     Uses the format defined in find-communities.py
@@ -49,8 +49,9 @@ def read_clusters(gzipped_file, bbox):
         for line in fd:
             fields = [int(x) for x in line.strip().split()]
             # Scale lat/lon to normal degrees
-            fields[1] /= 100000.
-            fields[2] /= 100000.
+            if scale:
+                fields[1] /= 100000.
+                fields[2] /= 100000.
             node = NodeInfo(*fields)
             if in_bbox(node):
                 yield node
@@ -158,11 +159,13 @@ def get_convex_hull(points):
     log.info("Finding convex hull of %i points", len(points))
     hull = ConvexHull(points)
     log.info("Found convex hull with %i facets", len(hull.simplices))
-    points = []
+    hull_edges = []
     for simplex in hull.simplices:
-        points.append((points[simplex, 0], points[simplex, 1]))
-    polygon = Polygon(points)
-    return polygon
+        hull_edges.append(
+            zip(points[simplex, 0], points[simplex, 1]))
+    polygon = list(polygonize(hull_edges))
+    assert(len(polygon) == 1)
+    return polygon[0]
 
 
 def voronoi_prune_region(nodes, alpha_cut, keep=0.05, draw=None):

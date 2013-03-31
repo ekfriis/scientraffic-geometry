@@ -133,6 +133,9 @@ def get_concave_hull(points, cut):
             add_edge(ic, ia)
 
     log.info("After filter, %i edges remain", len(edge_points))
+    if not edge_points:
+        log.warning("No edges remain, concave hull is not defined!")
+        return None
     m = MultiLineString(edge_points)
     log.info("Polygonizing")
     triangles = list(polygonize(m))

@@ -13,7 +13,7 @@
 
 # Clean up clustering to remove artifacts
 %.communities.cleaned.gz: %.communities.gz
-	./clean-communities.py $< $@ --bbox -11820000 3384000 -11840000 3392000 --alphacut 10 --buffer 0.03 --convexity 0.5
+	./clean-communities.py $< $@ --bbox -11800000 3370000 -11880000 3392000 --alphacut 10 --buffer 0.03 --convexity 0.5
 
 # Make geo-json 
 %.tesselation.json: %.communities.cleaned.gz tesselate-communities.py gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp

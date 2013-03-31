@@ -75,6 +75,12 @@ if __name__ == "__main__":
         log.info("Cleaning community %i with %i points",
                  clustidx, len(points))
         concave_hull = topotools.get_concave_hull(points, args.alphacut)
+        # So tiny it doesn't even have a hull
+        if concave_hull is None:
+            log.info("No concave hull, orphaning judicously")
+            orphans.extend(node_list)
+            continue
+
         concave_area = concave_hull.area
         log.info("Found concave hull with area %g", concave_area)
         convex_hull = topotools.get_convex_hull(points)

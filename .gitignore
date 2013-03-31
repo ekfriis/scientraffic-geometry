@@ -5,3 +5,4 @@ venv
 gis_data
 *.json
 *.pdf
+*.osrm

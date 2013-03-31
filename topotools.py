@@ -190,6 +190,9 @@ def voronoi_prune_region(nodes, alpha_cut, keep=0.05, draw=None):
 
     # get the concave hull around these points
     hull = get_concave_hull(points, alpha_cut)
+    if not hull:
+        log.warning("Concave hull is null, using convex!")
+        hull = get_convex_hull(points)
     # buffer hull by about 5% for determining membership
     hull_distance_scale = math.sqrt(hull.area)
     buffered_hull = hull.buffer(hull_distance_scale * 0.05)

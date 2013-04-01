@@ -94,19 +94,27 @@ if __name__ == "__main__":
          (min_lon, min_lat)])
 
     # Find any relevant shapes in our AND shapefile
-    bounding_shapes = []
+    bounding_polygon = None
+    feature_count = 0
     for shp_file in args.and_shapes:
         log.info("Loading features from %s", shp_file)
+        polys_in_shp_file = []
         for feature in topotools.shp_to_multipolygon(
                 shp_file, overlapping=bounding_box):
             if not isinstance(feature, MultiPolygon):
                 feature = [feature]
             for poly in feature:
                 if bounding_box.intersects(poly):
-                    bounding_shapes.append(poly.intersection(bounding_box))
-    log.info("Found %i overlapping features", len(bounding_shapes))
-    bounding_polygon = MultiPolygon(
-        bounding_shapes) if bounding_shapes else None
+                    feature_count += 1
+                    interesting_part = poly.intersection(bounding_box)
+                    polys_in_shp_file.append(interesting_part)
+        shp_file_megapoly = cascaded_union(polys_in_shp_file)
+        if bounding_polygon is None:
+            bounding_polygon = shp_file_megapoly
+        else:
+            bounding_polygon = bounding_polygon.intersection(
+                shp_file_megapoly)
+    log.info("Found %i overlapping features", feature_count)
 
     voronoi = Voronoi(np.array(
         [(x.lon, x.lat) for x in pruned_nodes], dtype=float))
@@ -157,7 +165,7 @@ if __name__ == "__main__":
 
         if bounding_polygon is not None:
             polygon = polygon.intersection(bounding_polygon)
-        log.info("After AND-ing, the area is: %0.2f", polygon.area)
+        log.info("After AND-ing, the area is: %0.2g", polygon.area)
 
         best_polygon = polygon
         original_area = polygon.area

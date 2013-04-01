@@ -22,7 +22,7 @@ import math
 import operator
 
 import numpy as np
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Point, Polygon, LineString
 from scipy.spatial import KDTree
 
 import topotools
@@ -82,6 +82,12 @@ if __name__ == "__main__":
     for clustidx, nodes in clustered_nodes:
         node_list = list(nodes)
         points = np.array([(x.lon, x.lat) for x in node_list], dtype=float)
+
+        if len(node_list) < 20:
+            log.info("Cluster has less than 20 nodes, orphaning")
+            orphans.extend(node_list)
+            continue
+
         log.info("Cleaning community %i with %i points",
                  clustidx, len(points))
         concave_hull = topotools.get_concave_hull(points, args.alphacut)
@@ -115,7 +121,7 @@ if __name__ == "__main__":
         # down a road away from the main group.
         has_tail = True  # guilty until proven innocent
         while has_tail:
-            hull_outline = concave_hull.boundary
+            hull_outline = LineString(concave_hull.exterior)
             characteristic_size = math.sqrt(concave_hull.area)
             outline_pts = hull_outline.coords[:]
             # find the projections along the line lenght for each point
@@ -173,7 +179,7 @@ if __name__ == "__main__":
                 log.info("Found new hull with %0.2f of the original area "
                          "and %0.2f of the original length",
                          biggest.area / concave_hull.area,
-                         biggest.boundary.length / hull_outline.length)
+                         biggest.exterior.length / hull_outline.length)
                 concave_hull = biggest
             else:
                 print 'break'

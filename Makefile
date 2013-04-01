@@ -9,14 +9,14 @@
 
 # Cluster nodes in graph using fast-greedy
 %.communities.gz: %.igraph.pkl.gz find-communities.py 
-	./find-communities.py --clusters 1000 $< $@
+	./find-communities.py --clusters 250 $< $@
 
 # Clean up clustering to remove artifacts
 %.communities.cleaned.gz: %.communities.gz clean-communities.py
 	./clean-communities.py $< $@ \
 	  --alphacut 10 --buffer 0.03 --convexity 0.2 \
-	  --min-tail-pinch 0.1 --max-tail-length 5 \
-	  --bbox -11800000 3320000 -11880000 3392000 
+	  --min-tail-pinch 0.1 --max-tail-length 5 
+	  #--bbox -11800000 3320000 -11880000 3392000 
 
 
 # Make geo-json 

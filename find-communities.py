@@ -30,8 +30,9 @@ if __name__ == "__main__":
                         help='Gzipped igraph cornichon.')
     parser.add_argument('output', metavar='communities.gz',
                         help='Output communities')
-    parser.add_argument('--clusters', default=1000,
-                        type=int, help='Number of clusters to form')
+    parser.add_argument('--clusters', default=0,
+                        type=int, help='Number of clusters to form.'
+                        ' If not specified, use the # found by the algo')
 
     args = parser.parse_args()
 
@@ -48,8 +49,10 @@ if __name__ == "__main__":
     log.info("Found an optimal count of %i communities",
              communities.optimal_count)
 
-    log.info("Partitioning dendrogram into %i clusters", args.clusters)
-    clusters = communities.as_clustering(args.clusters)
+    n_clusters = args.clusters if args.clusters else communities.optimal_count
+
+    log.info("Partitioning dendrogram into %i clusters", n_clusters)
+    clusters = communities.as_clustering(n_clusters)
 
     log.info("Mini-fying data")
     log.info("Writing to %s", args.output)

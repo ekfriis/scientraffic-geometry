@@ -23,8 +23,13 @@
 %.tesselation.json: %.communities.cleaned.gz tesselate-communities.py gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
 	./tesselate-communities.py $< $@ --draw $*.pdf --AND gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
 
+%.topo.json: %.tesselation.json
+	./node_modules/topojson/bin/topojson -o $@ $< -s 5 -q 5000
+
 all: los-angeles.igraph.pkl.gz los-angeles.communities.gz \
-  los-angeles.communities.cleaned.gz los-angeles.tesselation.json
+  los-angeles.communities.cleaned.gz \
+  los-angeles.tesselation.json \
+  los-angeles.topo.json
 
 ######################################
 # Downloading data 

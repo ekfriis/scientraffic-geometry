@@ -15,6 +15,9 @@
 %.smoothed.communities.gz: %.communities.gz nearest-neighbors.py
 	./nearest-neighbors.py $< $@ -k 30
 
+%.communities.hulls.json: %.smoothed.communities.gz concave-hulls.py
+	./concave-hulls.py $< $@ --alphacut 10
+
 # Clean up clustering to remove artifacts
 %.communities.cleaned.gz: %.smoothed.communities.gz clean-communities.py
 	./clean-communities.py $< $@ \

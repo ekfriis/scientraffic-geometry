@@ -1,4 +1,4 @@
-#!/usr/bin/env
+#!/usr/bin/env python
 
 '''
 
@@ -8,6 +8,7 @@ as GeoJSON files.
 '''
 
 import argparse
+from concurrent import futures
 import itertools
 import logging
 import operator
@@ -33,22 +34,34 @@ if __name__ == "__main__":
     parser.add_argument('--alphacut', type=float, metavar='x', default=10,
                         help='Concave hull alpha cut. Default %(default)f')
 
+    parser.add_argument('--threads', type=int, metavar='N', default=2,
+                        help='Number of threads. Default %(default)f')
+
     args = parser.parse_args()
 
     logging.basicConfig()
     log.setLevel(logging.INFO)
+    topotools.hulls.log.setLevel(logging.INFO)
 
     # Get generator of clustered nodes
     # We keep these in OSRM units for now.
-    clustered_nodes = itertools.groupby(
+    clustered_node_iters = itertools.groupby(
         topotools.read_clusters(args.input, args.bbox, scale=False),
         operator.attrgetter('clust')
     )
 
-    features = []
-    for clustidx, nodes in clustered_nodes:
+    clustered_nodes = (
+        (clust, list(nodes)) for clust, nodes in clustered_node_iters)
+
+    def compute_hull(fargs):
+        '''Compute the convex hull for a set of nodes
+
+        Returns a geojson object.
+        '''
+        clustidx, nodes = fargs
         points = np.array([(x.lon, x.lat) for x in nodes], dtype=int)
-        hull = topotools.get_convex_hull(points, args.alphacut)
+        print 'proc', clustidx, len(points)
+        hull = topotools.get_concave_hull(points, args.alphacut)
         feature = geojson.Feature(
             id=clustidx,
             geometry=hull,
@@ -56,7 +69,12 @@ if __name__ == "__main__":
                 'clust': clustidx
             }
         )
-        features.apend(feature)
+        return feature
+
+    log.info("Spawning %i compute threads", args.threads)
+    with futures.ThreadPoolExecutor(max_workers=args.threads) as executor:
+        features = list(executor.map(compute_hull, clustered_nodes))
+
     feature_collection = geojson.FeatureCollection(features)
 
     with open(args.output, 'w') as outputfd:

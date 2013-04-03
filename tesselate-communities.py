@@ -59,7 +59,6 @@ if __name__ == "__main__":
 
     logging.basicConfig()
     log.setLevel(logging.INFO)
-    topotools.log.setLevel(logging.INFO)
 
     random.seed(args.seed)
 

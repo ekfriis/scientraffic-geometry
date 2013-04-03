@@ -66,7 +66,6 @@ if __name__ == "__main__":
 
     logging.basicConfig()
     log.setLevel(logging.INFO)
-    topotools.log.setLevel(logging.INFO)
 
     # Get generator of clustered nodes
     # We keep these in OSRM units for now.

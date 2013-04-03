@@ -6,3 +6,4 @@ gis_data
 *.json
 *.pdf
 *.osrm
+node_modules/

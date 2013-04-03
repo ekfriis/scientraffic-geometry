@@ -13,6 +13,8 @@ import numpy as np
 from scipy.spatial import Delaunay, ConvexHull
 from shapely.geometry import MultiLineString, MultiPolygon
 from shapely.ops import cascaded_union, polygonize
+import shapely.speedups
+shapely.speedups.enable()
 
 log = logging.getLogger(__name__)
 

@@ -11,8 +11,12 @@
 %.communities.gz: %.igraph.pkl.gz find-communities.py 
 	./find-communities.py --clusters 250 $< $@
 
+# Smooth clustering using nearest neighbors
+%.smoothed.communities.gz: %.communities.gz nearest-neighbors.py
+	./nearest-neighbors.py $< $@ -k 30
+
 # Clean up clustering to remove artifacts
-%.communities.cleaned.gz: %.communities.gz clean-communities.py
+%.communities.cleaned.gz: %.smoothed.communities.gz clean-communities.py
 	./clean-communities.py $< $@ \
 	  --alphacut 10 --buffer 0.03 --convexity 0.2 \
 	  --min-tail-pinch 0.1 --max-tail-length 5 

@@ -6,6 +6,7 @@ Author: Evan K. Friis
 
 """
 
+from collections import Counter
 import logging
 import math
 
@@ -31,19 +32,11 @@ def get_concave_hull(points, cut):
     tri = Delaunay(points)
     log.info("Found %i Delaunay triangles", len(tri.vertices))
 
-    edge_points = []
-    edges = set()
+    edges = Counter()
 
     def add_edge(i, j):
-        """Add a line between the i-th and j-th points
-
-        If not in the list already
-        """
-        if (i, j) in edges or (j, i) in edges:
-            # already added
-            return
-        edges.add((i, j))
-        edge_points.append(points[[i, j]])
+        """Count the occurences of each edge. """
+        edges[(i, j) if i > j else (j, i)] += 1
     # loop over triangles:
     # ia, ib, ic = indices of corner points of the triangle
     for ia, ib, ic in tri.vertices:
@@ -78,11 +71,17 @@ def get_concave_hull(points, cut):
             add_edge(ib, ic)
             add_edge(ic, ia)
 
-    log.info("After filter, %i edges remain", len(edge_points))
-    if not edge_points:
+    log.info("After filter, %i edges remain", len(edges))
+    if not edges:
         log.warning("No edges remain, concave hull is not defined!")
         return None
-    m = MultiLineString(edge_points)
+
+    # Exterior edges are only owned by one triangle.
+    exterior_edges = [
+        points[list(edge)] for edge, count
+        in edges.iteritems() if count == 1]
+
+    m = MultiLineString(exterior_edges)
     log.info("Polygonizing")
     triangles = list(polygonize(m))
     log.info("Unionizing")

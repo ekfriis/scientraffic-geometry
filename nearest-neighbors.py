@@ -11,7 +11,6 @@ orphans and reasigned.
 """
 
 import argparse
-from collections import Counter
 import gzip
 import logging
 import operator
@@ -64,30 +63,15 @@ if __name__ == "__main__":
     log.info("Constructing KD-tree")
     tree = KDTree(points)
 
-    def find_new_clusters(nodecollection):
-        new_nodes = []
-        reassigned = 0
-        report_every = int(len(nodecollection) / 100)
-        for idx, node in enumerate(nodecollection):
-            if idx % report_every == 0:
-                log.info("Reassigned %i nodes", idx)
-            distances, indices = tree.query([(node.lon, node.lat)], k=args.k)
-            # NB only good nodes, not orphans are used for this.
-            neighbor_clusters = current_clusters[indices[0]]
-            new_cluster = Counter(neighbor_clusters).most_common(1)[0][0]
-            if new_cluster != node.clust:
-                reassigned += 1
-            new_nodes.append(topotools.NodeInfo(
-                node.id, node.lat, node.lon, new_cluster))
-        return new_nodes, reassigned
-
     new_good_nodes = good_nodes
     if not args.only_orphans:
         log.info("Reassigning all nodes...")
-        new_good_nodes, reassigned = find_new_clusters(good_nodes)
+        new_good_nodes, reassigned = topotools.reassign_clusters(
+            good_nodes, tree, current_clusters, args.k)
         log.info("%i nodes changed clusters", reassigned)
     log.info("Reassigning orphans")
-    adopted_orphans, reassigned = find_new_clusters(orphans)
+    adopted_orphans, reassigned = topotools.reassign_clusters(
+        orphans, tree, current_clusters, args.k)
     log.info("%i orphans were adopted", reassigned)
 
     log.info("Done adopting orphans")

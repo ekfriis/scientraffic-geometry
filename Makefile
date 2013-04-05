@@ -13,11 +13,11 @@
 
 # Smooth clustering using nearest neighbors
 %.smoothed.communities.gz: %.communities.gz nearest-neighbors.py
-	./nearest-neighbors.py $< $@ -k 30
+	./nearest-neighbors.py $< $@ -k 30 --threads 2
 
 # Compute the concave hull for each community, and remove outlying islands
 %.communities.hulls.json: %.smoothed.communities.gz concave-hulls.py
-	./concave-hulls.py $< $@ --alphacut 10
+	./concave-hulls.py $< $@ --alphacut 10 --threads 4
 
 # Delete communities which are spiky or "plus-sign" like.
 %.communities.smooth.hulls.json: %.smoothed.communities.hulls.json clean-spiky-hulls.py
@@ -25,7 +25,7 @@
 
 # Orphan nodes that don't lie very near their community hull.
 %.communities.no-outliers.gz: %.smoothed.communities.gz %.communities.smooth.hulls.json clean-outliers.py
-	./clean-outliers.py $< $*.communities.smooth.hulls.json $@ --buffer 0.05 --threads 2
+	./clean-outliers.py $< $*.communities.smooth.hulls.json $@ --buffer 0.05 --threads 4
 
 # Clean up clustering to remove artifacts
 %.communities.cleaned.gz: %.smoothed.communities.gz clean-communities.py

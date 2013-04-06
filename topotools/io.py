@@ -9,6 +9,7 @@ import gzip
 import logging
 
 from osgeo import ogr
+import numpy as np
 from shapely.wkb import loads
 
 log = logging.getLogger(__name__)
@@ -45,6 +46,18 @@ def read_clusters(gzipped_file, bbox, scale=True):
             node = NodeInfo(*fields)
             if in_bbox(node):
                 yield node
+
+
+def nodes_to_recarray(nodes):
+    """Convert an iterable of nodes into a numpy recarray"""
+    return np.array(
+        [(x.id, x.lat, x.lon, x.clust) for x in nodes],
+        dtype=[('id', int), ('lat', int), ('lon', int), ('clust', int)]
+    )
+
+
+def read_clusters_as_recarray(gzipped_file, bbox):
+    return nodes_to_recarray(read_clusters(gzipped_file, bbox, False))
 
 
 def shp_to_multipolygon(shp_file, overlapping=None):

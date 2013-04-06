@@ -11,10 +11,8 @@ orphans and reasigned.
 """
 
 import argparse
-import itertools
 import gzip
 import logging
-import operator
 
 import numpy as np
 from scipy.spatial import cKDTree as KDTree
@@ -51,63 +49,60 @@ if __name__ == "__main__":
     topotools.neighbors.log.setLevel(logging.DEBUG)
     #topotools.neighbors.log.setLevel(logging.INFO)
 
-    # Get generator of clustered nodes
-    # We keep these in OSRM units for now.
-    good_nodes = []
-    orphans = []
-    log.info("Reading %s", args.input)
-    for node in topotools.read_clusters(args.input, args.bbox, scale=False):
-        if node.clust != -1:
-            good_nodes.append(node)
-        else:
-            orphans.append(node)
-    log.info("Read %i good nodes and  %i orphans.", len(good_nodes),
-             len(orphans))
+    nodes = topotools.io.read_clusters_as_recarray(
+        args.input, args.bbox).view(np.recarray)
 
-    points = np.array([(x.lon, x.lat) for x in good_nodes], dtype=int)
-    current_clusters = np.array([x.clust for x in good_nodes], dtype=int)
+    # Order by cluster
+    nodes.sort(order='clust')
+
+    # Orphans have clustid = -1.  Find the first non orphan node.
+    first_non_orphan_idx = None
+    for idx, cluster in enumerate(nodes.clust):
+        if cluster != -1:
+            first_non_orphan_idx = idx
+            break
+
+    # Seperate good nodes and orphans
+    good_nodes = nodes[first_non_orphan_idx:]
+    orphans = nodes[0:first_non_orphan_idx]
+
+    log.info("Read %i good nodes and  %i orphans.",
+             len(good_nodes), len(orphans))
+
+    # Make a ND-array view of the x-y points
+    good_points = good_nodes[['lon', 'lat']].view('<i8').reshape(
+        (good_nodes.size, 2))
+
+    current_clusters = good_nodes.clust
 
     log.info("Constructing KD-tree")
-    tree = KDTree(points)
+    tree = KDTree(good_points)
 
     if not args.only_orphans:
         log.info("Reassigning all nodes...")
-        new_clusters = topotools.reassign_clusters_threaded(
-            good_nodes, tree, current_clusters, args.k, args.threads)
+        new_clusters = topotools.reassign_clusters(
+            good_points, tree, current_clusters, args.k)
 
         log.info("Upating cluster membership")
-        changed = 0
-        for i, (current, new_cluster) in enumerate(
-                itertools.izip(current_clusters, new_clusters)):
-            if current != new_cluster:
-                changed += 1
-                current_node = good_nodes[i]
-                good_nodes[i] = topotools.NodeInfo(
-                    current_node.id,
-                    current_node.lat,
-                    current_node.lon,
-                    new_cluster)
-        log.info("%i nodes changed clusters", changed)
-
-    good_nodes.sort(key=operator.attrgetter('clust'))
+        changed = new_clusters != current_clusters
+        nodes.clust = new_clusters
+        log.info("Changed %i clusters", np.count_nonzero(changed))
 
     log.info("Reassigning orphans")
-    new_orphan_clusters = topotools.reassign_clusters_threaded(
-        orphans, tree, current_clusters, args.k, args.threads)
-
-    for i in range(len(orphans)):
-        current_node = orphans[i]
-        orphans[i] = topotools.NodeInfo(
-            current_node.id,
-            current_node.lat,
-            current_node.lon,
-            new_orphan_clusters[i])
+    orphan_points = orphans[['lon', 'lat']].view('<i8').reshape(
+        (orphans.size, 2))
+    new_orphan_clusters = topotools.reassign_clusters(
+        orphan_points, tree, current_clusters, args.k)
+    orphans.clust = new_orphan_clusters
 
     log.info("Done adopting orphans")
 
+    sorted_indices = np.argsort(nodes.clust)
+
     log.info("Writing to %s", args.output)
     with gzip.open(args.output, 'wb') as outputfd:
-        for node in itertools.chain(orphans, good_nodes):
+        for id, lat, lon, clust in nodes[sorted_indices][
+                ['id', 'lat', 'lon', 'clust']]:
             outputfd.write(' '.join(str(x) for x in [
-                node.id, node.lat, node.lon, node.clust, '\n'
+                id, lat, lon, clust, '\n'
             ]))

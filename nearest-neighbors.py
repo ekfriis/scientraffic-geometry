@@ -39,9 +39,6 @@ if __name__ == "__main__":
                         dest='only_orphans',
                         help='If specified, only reassign orphans.')
 
-    parser.add_argument('--threads', type=int, metavar='N', default=2,
-                        help='Number of threads. Default %(default)f')
-
     args = parser.parse_args()
 
     logging.basicConfig()

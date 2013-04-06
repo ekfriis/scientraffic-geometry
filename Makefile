@@ -13,7 +13,7 @@
 
 # Smooth clustering using nearest neighbors
 %.smoothed.communities.gz: %.communities.gz nearest-neighbors.py
-	./nearest-neighbors.py $< $@ -k 30 --threads 2
+	./nearest-neighbors.py $< $@ -k 30 
 
 # Compute the concave hull for each community, and remove outlying islands
 %.communities.hulls.json: %.smoothed.communities.gz concave-hulls.py

@@ -1,51 +1,58 @@
 
+# Output target template
+OUTPUT=CITY/igraph.pkl.gz\
+       CITY/communities.gz\
+       CITY/communities.smoothed.gz\
+       CITY/communities.hulls.json\
+       CITY/communities.smooth.hulls.json\
+       CITY/communities.no-outliers.gz\
+       CITY/communities.associate-outliers.gz\
+       CITY/tesselation.json
+
+LA_TARGETS=$(subst CITY,los-angeles,$(OUTPUT))
+
+la: $(LA_TARGETS)
+
 ######################################
 # Community identification workflow  #
 ######################################
 
 # Put OSRM graph data into igraph format
-%.igraph.pkl.gz: %.osrm
+%/igraph.pkl.gz: %/osrm
 	./osrm2igraph.py $< $@
 
 # Cluster nodes in graph using fast-greedy
-%.communities.gz: %.igraph.pkl.gz find-communities.py 
+%/communities.gz: %/igraph.pkl.gz find-communities.py 
 	./find-communities.py --clusters 250 $< $@
 
 # Smooth clustering using nearest neighbors
-%.smoothed.communities.gz: %.communities.gz nearest-neighbors.py
+%/communities.smoothed.gz: %/communities.gz nearest-neighbors.py
 	./nearest-neighbors.py $< $@ -k 30 
 
 # Compute the concave hull for each community, and remove outlying islands
-%.communities.hulls.json: %.smoothed.communities.gz concave-hulls.py
+%/communities.hulls.json: %/communities.smoothed.gz concave-hulls.py
 	./concave-hulls.py $< $@ --alphacut 10 --threads 4
 
 # Delete communities which are spiky or "plus-sign" like.
-%.communities.smooth.hulls.json: %.smoothed.communities.hulls.json clean-spiky-hulls.py
+%/communities.smooth.hulls.json: %/communities.hulls.json clean-spiky-hulls.py
 	./clean-spiky-hulls.py $< $@  --convexity 0.4
 
+# TODO - make tail cleaner here.
+
 # Orphan nodes that don't lie very near their community hull.
-%.communities.no-outliers.gz: %.smoothed.communities.gz %.communities.smooth.hulls.json clean-outliers.py
-	./clean-outliers.py $< $*.communities.smooth.hulls.json $@ --buffer 0.05 --threads 4
+%/communities.no-outliers.gz: %/communities.smoothed.gz %/communities.smooth.hulls.json clean-outliers.py
+	./clean-outliers.py $< $*/communities.smooth.hulls.json $@ --buffer 0.05 --threads 4
 
-# Clean up clustering to remove artifacts
-%.communities.cleaned.gz: %.smoothed.communities.gz clean-communities.py
-	./clean-communities.py $< $@ \
-	  --alphacut 10 --buffer 0.03 --convexity 0.2 \
-	  --min-tail-pinch 0.1 --max-tail-length 5 
-	  #--bbox -11800000 3320000 -11880000 3392000 
-
+# Reassociate all orphans with their neighbors
+%/communities.associate-outliers.gz: %/communities.no-outliers.gz
+	./nearest-neighbors.py $< $@ -k 30 --orphans-only
 
 # Make geo-json 
-%.tesselation.json: %.communities.cleaned.gz tesselate-communities.py gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
+%/tesselation.json: %/communities.cleaned.gz tesselate-communities.py gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
 	./tesselate-communities.py $< $@ --draw $*.pdf --AND gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
 
-%.topo.json: %.tesselation.json
+%/topo.json: %/tesselation.json
 	./node_modules/topojson/bin/topojson -o $@ $< -s 5 -q 5000
-
-all: los-angeles.igraph.pkl.gz los-angeles.communities.gz \
-  los-angeles.communities.cleaned.gz \
-  los-angeles.tesselation.json \
-  los-angeles.topo.json
 
 ######################################
 # Downloading data 

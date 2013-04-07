@@ -45,7 +45,7 @@ la: $(LA_TARGETS)
 
 # Reassociate all orphans with their neighbors
 %/communities.associate-outliers.gz: %/communities.no-outliers.gz
-	./nearest-neighbors.py $< $@ -k 30 --orphans-only
+	./nearest-neighbors.py $< $@ -k 30 --only-orphans
 
 # Make geo-json 
 %/tesselation.json: %/communities.cleaned.gz tesselate-communities.py gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp

@@ -10,8 +10,12 @@
 .community-boundary {
   fill: none;
   stroke: #000;
-  stroke-width: 0.1;
+  stroke-width: 0.15;
   stroke-linejoin: round;
+}
+
+.hover {
+  fill: "#fff";
 }
 
 text {
@@ -70,12 +74,30 @@ d3.json("los-angeles/topo.json", function(error, la) {
     }
   });
   */
-
+/*
   svg.append("path")
       .datum(communities)
       .attr("class", "community")
       //.style("fill", function(d) { return colorByObject[d.id]; })
+      .on("mouseover", function() {
+        d3.select(d3.event.target).classed("hover", true); })
+      .on("mouseout", function() {
+        d3.select(d3.event.target).classed("hover", false); })
       .attr("d", path);
+      */
+
+  svg.append('g')
+      .selectAll("path")
+         .data(communities.geometries)
+         .enter().append("path")
+         .attr('class', 'community')
+         .on("mouseover", function() {
+           console.log('wtf');
+           console.log(this);
+           d3.select(this).attr("class", "hover"); })
+         .on("mouseout", function() {
+           d3.select(this).attr("class", "community"); })
+         .attr("d", path);
 
   svg.append("path")
       .datum(topojson.mesh(la, la.objects["tesselation"], function(a, b) { return a !== b; }))

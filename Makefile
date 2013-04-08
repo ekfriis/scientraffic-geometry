@@ -8,7 +8,8 @@ OUTPUT=CITY/igraph.pkl.gz\
        CITY/communities.no-outliers.gz\
        CITY/communities.associate-outliers.gz\
        CITY/communities.edges.gz\
-       CITY/tesselation.json
+       CITY/tesselation.json\
+       CITY/topo.json
 
 LA_TARGETS=$(subst CITY,los-angeles,$(OUTPUT))
 

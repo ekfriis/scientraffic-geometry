@@ -57,7 +57,7 @@ if __name__ == "__main__":
         cluster_id = feature['properties']['clust']
         cluster_features[cluster_id] = asShape(feature['geometry'])
 
-    log.info("Loaded %i hulls", len(features))
+    log.info("Loaded %i hulls", len(cluster_features))
 
     # Get generator of clustered nodes
     # We keep these in OSRM units for now.
@@ -94,7 +94,7 @@ if __name__ == "__main__":
         for node in nodes:
             # check if it is an interior node
             point = Point((node.lon, node.lat))
-            orphan = point.within(buffered)
+            orphan = not point.within(buffered)
             if orphan:
                 num_orphans += 1
             output.append(topotools.NodeInfo(

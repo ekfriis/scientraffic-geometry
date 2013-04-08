@@ -7,6 +7,7 @@ OUTPUT=CITY/igraph.pkl.gz\
        CITY/communities.smooth.hulls.json\
        CITY/communities.no-outliers.gz\
        CITY/communities.associate-outliers.gz\
+       CITY/communities.edges.gz\
        CITY/tesselation.json
 
 LA_TARGETS=$(subst CITY,los-angeles,$(OUTPUT))
@@ -47,9 +48,14 @@ la: $(LA_TARGETS)
 %/communities.associate-outliers.gz: %/communities.no-outliers.gz
 	./nearest-neighbors.py $< $@ -k 30 --only-orphans
 
+# Get only the nodes on the edges of the communities, so the tesselation isn't
+# slow.
+%/communities.edges.gz: %/communities.associate-outliers.gz %/communities.smooth.hulls.json
+	./find-edge-nodes.py $< $*/communities.smooth.hulls.json $@ --within 0.07 --keep 0.03 --threads 4
+
 # Make geo-json 
-%/tesselation.json: %/communities.cleaned.gz tesselate-communities.py gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
-	./tesselate-communities.py $< $@ --draw $*.pdf --AND gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
+%/tesselation.json: %/communities.edges.gz tesselate-communities.py gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
+	./tesselate-communities.py $< $@ --draw $*/tesselation.pdf --AND gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
 
 %/topo.json: %/tesselation.json
 	./node_modules/topojson/bin/topojson -o $@ $< -s 5 -q 5000

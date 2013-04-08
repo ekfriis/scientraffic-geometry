@@ -26,13 +26,16 @@ text {
 <script src="http://d3js.org/topojson.v0.min.js"></script>
 <script>
 
-var width = 2000,
-    height = 1000;
+var width = 800,
+    height = 800;
 
 var projection = d3.geo.albers()
-    .rotate([0, 0])
-    .center([-118.22, 34.0299])
-    .scale(25000)
+    //.rotate([0, 0])
+    .rotate([118, 0])
+    //.center([-118.22, 34.0299])
+    //.rotate([-118, 0])
+    .center([0, 34.02])
+    .scale(15000)
     .translate([width / 2, height / 2])
     .precision(.1);
 
@@ -43,15 +46,17 @@ var svg = d3.select("body").append("svg")
     .attr("width", width)
     .attr("height", height);
 
-d3.json("los-angeles.topo.json", function(error, la) {
-  var communities = topojson.object(la, la.objects["los-angeles.tesselation"]);
+d3.json("los-angeles/topo.json", function(error, la) {
+  console.log("Loading file");
+  var communities = topojson.object(la, la.objects["tesselation"]);
 
-  var neighbors = topojson.neighbors(la, la.objects['los-angeles.tesselation']),
+  /*
+  var neighbors = topojson.neighbors(la, la.objects['tesselation']),
       colors = d3.scale.category10().range().map(function(c) { c = d3.hcl(c); c.c *= .5; c.h = c.h / 2 + 230; return c; }),
       nColors = colors.length,
       colorByObject = {};
 
-world.objects.countries.geometries.forEach(function(o, index) {
+  world.objects.countries.geometries.forEach(function(o, index) {
     var oNeighbours = neighbors[index] || [],
         m = oNeighbours.length;
     nextColor:
@@ -64,15 +69,16 @@ world.objects.countries.geometries.forEach(function(o, index) {
       break;
     }
   });
+  */
 
   svg.append("path")
       .datum(communities)
       .attr("class", "community")
-      .style("fill", function(d) { return colorByObject[d.id]; })
+      //.style("fill", function(d) { return colorByObject[d.id]; })
       .attr("d", path);
 
   svg.append("path")
-      .datum(topojson.mesh(la, la.objects["los-angeles.tesselation"], function(a, b) { return a !== b; }))
+      .datum(topojson.mesh(la, la.objects["tesselation"], function(a, b) { return a !== b; }))
       .attr("class", "community-boundary")
       .attr("d", path);
 });

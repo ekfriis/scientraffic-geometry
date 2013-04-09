@@ -16,6 +16,7 @@ import topotools
 
 import geojson
 import numpy as np
+from scipy.spatial.qhull import QhullError
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ if __name__ == "__main__":
 
     logging.basicConfig()
     log.setLevel(logging.INFO)
-    topotools.hulls.log.setLevel(logging.INFO)
+    #topotools.hulls.log.setLevel(logging.INFO)
 
     # Get generator of clustered nodes
     # We keep these in OSRM units for now.
@@ -60,22 +61,28 @@ if __name__ == "__main__":
         '''
         clustidx, nodes = fargs
         points = np.array([(x.lon, x.lat) for x in nodes], dtype=int)
-        print 'proc', clustidx, len(points)
-        hull = topotools.get_concave_hull(points, args.alphacut)
-        feature = geojson.Feature(
-            id=clustidx,
-            geometry=hull,
-            properties={
-                'clust': clustidx
-            }
-        )
+        try:
+            hull = topotools.get_concave_hull(points, args.alphacut)
+            feature = geojson.Feature(
+                id=clustidx,
+                geometry=hull,
+                properties={
+                    'clust': clustidx
+                }
+            )
+        except QhullError:
+            log.exception("Error in Qhull, returning null for cluster"
+                          " %i with %i nodes" % (clustidx, len(points)))
+            feature = None
         return feature
 
     log.info("Spawning %i compute threads", args.threads)
     with futures.ThreadPoolExecutor(max_workers=args.threads) as executor:
         features = list(executor.map(compute_hull, clustered_nodes))
 
-    feature_collection = geojson.FeatureCollection(features)
+    feature_collection = geojson.FeatureCollection(
+        [feature for feature in features
+         if feature is not None and feature.geometry])
 
     with open(args.output, 'w') as outputfd:
         geojson.dump(feature_collection, outputfd, indent=2)

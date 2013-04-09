@@ -62,7 +62,7 @@ la: $(LA_TARGETS)
 	./tesselate-communities.py $< $@ --draw $*/tesselation.pdf --AND gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
 
 %/topo.json: %/tesselation.json
-	./node_modules/topojson/bin/topojson -o $@ $< --simplify-proportion 0.20
+	./node_modules/topojson/bin/topojson -o $@ $< -q 1e3 -s 1E-9
 
 ######################################
 # Downloading data 

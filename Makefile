@@ -26,7 +26,7 @@ la: $(LA_TARGETS)
 
 # Cluster nodes in graph using fast-greedy
 %/communities.gz: %/igraph.pkl.gz find-communities.py 
-	./find-communities.py --clusters 250 $< $@
+	./find-communities.py --clusters 0 $< $@
 
 # Smooth clustering using nearest neighbors
 %/communities.smoothed.gz: %/communities.gz nearest-neighbors.py

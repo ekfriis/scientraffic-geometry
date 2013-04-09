@@ -5,6 +5,7 @@ OUTPUT=CITY/igraph.pkl.gz\
        CITY/communities.smoothed.gz\
        CITY/communities.hulls.json\
        CITY/communities.smooth.hulls.json\
+       CITY/communities.no-tails.json\
        CITY/communities.no-outliers.gz\
        CITY/communities.associate-outliers.gz\
        CITY/communities.edges.gz\
@@ -39,11 +40,13 @@ la: $(LA_TARGETS)
 %/communities.smooth.hulls.json: %/communities.hulls.json clean-spiky-hulls.py
 	./clean-spiky-hulls.py $< $@  --convexity 0.4
 
-# TODO - make tail cleaner here.
+# Remove tails from communities
+%/communities.no-tails.json: %/communities.smooth.hulls.json trim-tails.py
+	./trim-tails.py $< $@ --min-tail-pinch 0.05 --max-tail-length 10
 
 # Orphan nodes that don't lie very near their community hull.
-%/communities.no-outliers.gz: %/communities.smoothed.gz %/communities.smooth.hulls.json clean-outliers.py
-	./clean-outliers.py $< $*/communities.smooth.hulls.json $@ --buffer 0.05 --threads 4
+%/communities.no-outliers.gz: %/communities.smoothed.gz %/communities.no-tails.json clean-outliers.py
+	./clean-outliers.py $< $*/communities.no-tails.json $@ --buffer 0.05 --threads 4
 
 # Reassociate all orphans with their neighbors
 %/communities.associate-outliers.gz: %/communities.no-outliers.gz

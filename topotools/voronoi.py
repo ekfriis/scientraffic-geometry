@@ -6,6 +6,7 @@ import random
 from descartes import PolygonPatch
 import numpy as np
 from scipy.spatial import Voronoi, voronoi_plot_2d
+from shapely.prepared import prep
 from shapely.geometry import Point
 import matplotlib.pyplot as plt
 
@@ -38,7 +39,7 @@ def voronoi_prune_region(nodes, alpha_cut, keep=0.05, draw=None):
         hull = get_convex_hull(points)
     # buffer hull by about 5% for determining membership
     hull_distance_scale = math.sqrt(hull.area)
-    buffered_hull = hull.buffer(hull_distance_scale * 0.05)
+    buffered_hull = prep(hull.buffer(hull_distance_scale * 0.05))
     hull_boundary = hull.boundary
 
     # Remove any outlier points around these nodes.
@@ -46,7 +47,7 @@ def voronoi_prune_region(nodes, alpha_cut, keep=0.05, draw=None):
     nodes_in_hull = []
     nodes_outside_hull = []
     for point, node in itertools.izip(points, nodes_list):
-        if Point(point).within(buffered_hull):
+        if buffered_hull.contains(Point(point)):
             nodes_in_hull.append(node)
         else:
             nodes_outside_hull.append(node)
@@ -63,6 +64,7 @@ def voronoi_prune_region(nodes, alpha_cut, keep=0.05, draw=None):
     edge_regions = set([])
 
     # find all regions which have a vertex outside the hull
+    prepped_hull = prep(hull)
     for region_idx, region in enumerate(voronoi.regions):
         exterior_region = False
         # keep a random collection of interior points
@@ -76,7 +78,7 @@ def voronoi_prune_region(nodes, alpha_cut, keep=0.05, draw=None):
                     break
                 else:
                     point = Point(voronoi.vertices[vtx_idx])
-                    if not point.within(hull):
+                    if not prepped_hull.contains(point):
                         exterior_region = True
                         break
                     # Keep 20% of points very close to the border

@@ -16,6 +16,7 @@ import operator
 
 import geojson
 from shapely.geometry import Point, asShape
+from shapely.prepared import prep
 
 import topotools
 
@@ -87,14 +88,14 @@ if __name__ == "__main__":
 
         characteristic_size = math.sqrt(cluster_hull.area)
         allowed_distance = characteristic_size * args.buffer
-        buffered = cluster_hull.buffer(allowed_distance)
+        buffered = prep(cluster_hull.buffer(allowed_distance))
 
         output = []
         num_orphans = 0
         for node in nodes:
             # check if it is an interior node
             point = Point((node.lon, node.lat))
-            orphan = not point.within(buffered)
+            orphan = not buffered.contains(point)
             if orphan:
                 num_orphans += 1
             output.append(topotools.NodeInfo(

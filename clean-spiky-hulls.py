@@ -36,6 +36,9 @@ if __name__ == "__main__":
 
     output_features = []
     for feature in features['features']:
+        if feature['geometry'] is None:
+            log.error("Geometry is null! Skipping: %s", repr(feature))
+            continue
         shape = asShape(feature['geometry'])
         concave_area = shape.area
         convex_area = shape.convex_hull.area

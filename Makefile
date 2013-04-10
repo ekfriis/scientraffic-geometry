@@ -57,11 +57,16 @@ la: $(LA_TARGETS)
 %/communities.edges.gz: %/communities.associate-outliers.gz %/communities.smooth.hulls.json
 	./find-edge-nodes.py $< $*/communities.smooth.hulls.json $@ --within 0.07 --keep 0.03 --threads 4
 
-# Make geo-json 
+# Make voronoi geo-json 
 %/tesselation.json: %/communities.edges.gz tesselate-communities.py gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
 	./tesselate-communities.py $< $@ --draw $*/tesselation.pdf --AND gis_data/ne_10m_urban_areas.shp gis_data/ne_10m_land.shp
 
-%/topo.json: %/tesselation.json
+# Merge all the puny communities into big ones
+%/tesselation.merged.json: %/tesselation.json merge-tiny-communities.py
+	./merge-tiny-communities.py $< $@ --min-wrt-quantile50 0.25
+
+#%/topo.json: %/tesselation.json
+%/topo.json: %/tesselation.merged.json
 	./node_modules/topojson/bin/topojson -o $@ $< -q 1e3 -s 1E-9
 
 ######################################

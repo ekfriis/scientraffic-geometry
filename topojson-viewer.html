@@ -52,10 +52,10 @@ var svg = d3.select("body").append("svg")
 
 d3.json("los-angeles/topo.json", function(error, la) {
   console.log("Loading file");
-  var communities = topojson.object(la, la.objects["tesselation"]);
+  var communities = topojson.object(la, la.objects["tesselation.merged"]);
 
   /*
-  var neighbors = topojson.neighbors(la, la.objects['tesselation']),
+  var neighbors = topojson.neighbors(la, la.objects['tesselation.merged']),
       colors = d3.scale.category10().range().map(function(c) { c = d3.hcl(c); c.c *= .5; c.h = c.h / 2 + 230; return c; }),
       nColors = colors.length,
       colorByObject = {};
@@ -100,7 +100,7 @@ d3.json("los-angeles/topo.json", function(error, la) {
          .attr("d", path);
 
   svg.append("path")
-      .datum(topojson.mesh(la, la.objects["tesselation"], function(a, b) { return a !== b; }))
+      .datum(topojson.mesh(la, la.objects["tesselation.merged"], function(a, b) { return a !== b; }))
       .attr("class", "community-boundary")
       .attr("d", path);
 });
